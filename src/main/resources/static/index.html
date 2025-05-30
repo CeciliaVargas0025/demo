@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Biblioteca</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+
+            
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        .available {
+            color: green;
+        }
+        .unavailable {
+            color: red;
+        }
+
+        #available{
+            width: auto;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sistema de Gestión de Biblioteca</h1>
+    
+    <h2>Agregar Nuevo Libro</h2>
+    <form id="bookForm">
+        <div class="form-group">
+            <label for="title">Título:</label>
+            <input type="text" id="title" required>
+        </div>
+        <div class="form-group">
+            <label for="author">Autor:</label>
+            <input type="text" id="author" required>
+        </div>
+        <div class="form-group">
+            <label for="isbn">ISBN:</label>
+            <input type="text" id="isbn" required>
+        </div>
+        <div class="form-group">
+            <label for="available">Disponible:
+            <input type="checkbox" id="available" checked>
+            </label>
+        </div>
+        <button type="submit">Guardar Libro</button>
+    </form>
+    
+    <h2>Lista de Libros</h2>
+    <table id="bookTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Título</th>
+                <th>Autor</th>
+                <th>ISBN</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        const API_URL = 'http://localhost:8080/libros';
+        const bookTable = document.getElementById('bookTable').getElementsByTagName('tbody')[0];
+        const bookForm = document.getElementById('bookForm');
+
+        // Load books when page loads
+        document.addEventListener('DOMContentLoaded', fetchBooks);
+
+        // Form submission handler
+        bookForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const book = { 
+                titulo: document.getElementById('title').value,
+                autor: document.getElementById('author').value,
+                isbn: document.getElementById('isbn').value,
+                disponible: document.getElementById('available').checked
+            };
+            
+            fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(book),
+            })
+            .then(response => response.json())
+            .then(() => {
+                fetchBooks();
+                bookForm.reset();
+            })
+            .catch(error => console.error('Error:', error));
+        });
+
+        // Fetch all books
+        function fetchBooks() {
+            fetch(API_URL)
+                .then(response => response.json())
+                .then(libros => {
+                    bookTable.innerHTML = '';
+                    libros.forEach(libro => {
+                        const row = bookTable.insertRow();
+                        
+                        row.insertCell().textContent = libro.id;
+                        row.insertCell().textContent = libro.titulo;
+                        row.insertCell().textContent = libro.autor;
+                        row.insertCell().textContent = libro.isbn;
+                        
+                        const statusCell = row.insertCell();
+                        statusCell.textContent = libro.disponible ? 'Disponible' : 'No disponible';
+                        statusCell.className = libro.disponible ? 'available' : 'unavailable';
+                        
+                        const actionsCell = row.insertCell();
+                        const actionButtons = document.createElement('div');
+                        actionButtons.className = 'action-buttons';
+                        
+                        const editButton = document.createElement('button');
+                        editButton.textContent = 'Editar';
+                        editButton.onclick = () => editBook(libro.id);
+                        
+                        const deleteButton = document.createElement('button');
+                        deleteButton.textContent = 'Eliminar';
+                        deleteButton.onclick = () => deleteBook(libro.id);
+                        
+                        actionButtons.appendChild(editButton);
+                        actionButtons.appendChild(deleteButton);
+                        actionsCell.appendChild(actionButtons);
+                    });
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Edit book
+        function editBook(id) {
+            fetch(`${API_URL}/${id}`)
+                .then(response => response.json())
+                .then(libro => {
+                    document.getElementById('title').value = libro.titulo;
+                    document.getElementById('author').value = libro.autor;
+                    document.getElementById('isbn').value = libro.isbn;
+                    document.getElementById('available').checked = libro.disponible;
+                    
+                    // Change form to update mode
+                    const submitButton = bookForm.querySelector('button[type="submit"]');
+                    submitButton.textContent = 'Actualizar Libro';
+                    submitButton.onclick = function(e) {
+                        e.preventDefault();
+                        
+                        const updatedLibro = {
+                            titulo: document.getElementById('title').value,
+                            autor: document.getElementById('author').value,
+                            isbn: document.getElementById('isbn').value,
+                            disponible: document.getElementById('available').checked
+                        };
+                        
+                        fetch(`${API_URL}/${id}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(updatedLibro),
+                        })
+                        .then(() => {
+                            fetchBooks();
+                            bookForm.reset();
+                            submitButton.textContent = 'Guardar Libro';
+                            submitButton.onclick = bookForm.onsubmit;
+                        })
+                        .catch(error => console.error('Error:', error));
+                    };
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Delete book
+        function deleteBook(id) {
+            if (confirm('¿Estás seguro de que deseas eliminar este libro?')) {
+                fetch(`${API_URL}/${id}`, {
+                    method: 'DELETE',
+                })
+                .then(() => fetchBooks())
+                .catch(error => console.error('Error:', error));
+            }
+        }
+    </script>
+</body>
+</html>
